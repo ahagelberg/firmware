@@ -42,6 +42,62 @@ static void sendFaviconLink(EthernetClient& client) {
     client.println("<link rel=\"icon\" type=\"image/png\" href=\"/favicon.ico\">");
 }
 
+static void sendPageHead(EthernetClient& client, const char* title, const char* subtitle) {
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/html");
+    client.println("Connection: close");
+    client.println();
+    client.print("<!DOCTYPE html><html lang=\"en\"><head>"
+                 "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">"
+                 "<title>");
+    client.print(title);
+    client.println("</title>");
+    sendFaviconLink(client);
+    /* Colour palette derived from Invize brand: dark charcoal base, violet accent */
+    client.println("<style>"
+        ":root{--bg:#18181b;--sf:#27272a;--ac:#8b5cf6;--ah:#7c3aed;--tx:#fafafa;--mu:#a1a1aa;--bd:#3f3f46;--in:#1f1f23}"
+        "*{box-sizing:border-box;margin:0;padding:0}"
+        "body{background:var(--bg);color:var(--tx);font:14px/1.5 system-ui,sans-serif;min-height:100vh;display:flex;flex-direction:column}"
+        "header{background:var(--sf);border-bottom:1px solid var(--bd);padding:12px 20px;display:flex;align-items:center;gap:12px}"
+        "header h1{font-size:15px;font-weight:600}"
+        "header .sub{font-size:11px;color:var(--mu)}"
+        "main{flex:1;padding:20px;max-width:460px;width:100%;margin:0 auto}"
+        ".card{background:var(--sf);border:1px solid var(--bd);border-radius:8px;padding:18px;margin-bottom:14px}"
+        ".card h2{font-size:10px;font-weight:700;color:var(--mu);text-transform:uppercase;letter-spacing:.07em;margin-bottom:14px}"
+        ".f{margin-bottom:11px}"
+        "label{display:block;font-size:12px;color:var(--mu);margin-bottom:4px}"
+        "input,select{width:100%;background:var(--in);border:1px solid var(--bd);border-radius:6px;color:var(--tx);padding:7px 10px;font-size:13px;outline:none}"
+        "input:focus,select:focus{border-color:var(--ac)}"
+        ".hint{font-size:11px;color:var(--mu);margin-top:3px}"
+        ".row{display:flex;gap:10px}.row .f{flex:1}"
+        "button{width:100%;background:var(--ac);color:#fff;border:none;border-radius:6px;padding:9px;font-size:14px;font-weight:500;cursor:pointer}"
+        "button:hover{background:var(--ah)}"
+        "a.lk{color:var(--ac);font-size:13px;text-decoration:none}"
+        "a.lk:hover{text-decoration:underline}"
+        ".nav{margin-bottom:14px}"
+        ".brand{margin-left:auto;text-align:right;line-height:1.3}"
+        ".brand b{color:var(--ac);font-size:13px;letter-spacing:.04em}"
+        ".brand small{display:block;font-size:10px;color:var(--mu)}"
+        "footer{text-align:center;padding:14px;font-size:11px;color:var(--mu);border-top:1px solid var(--bd)}"
+        "footer a{color:var(--mu)}"
+        "</style></head><body>");
+    client.println("<header>");
+    client.println("<img src=\"/favicon.ico\" width=\"28\" height=\"28\">");
+    client.print("<div><h1>");
+    client.print(title);
+    client.print("</h1><span class=\"sub\">");
+    client.print(subtitle);
+    client.println("</span></div>");
+    client.println("<div class=\"brand\"><b>invize</b><small>Mechatronics Engineering<br>And Consulting</small></div>");
+    client.println("</header><main>");
+}
+
+static void sendPageFoot(EthernetClient& client) {
+    client.println("</main>");
+    client.println("<footer>Copyright &copy; 2026 <a href=\"https://invize.se\">Invize AB</a></footer>");
+    client.println("</body></html>");
+}
+
 static void sendFaviconResponse(EthernetClient& client) {
     client.println("HTTP/1.1 200 OK");
     client.println("Content-Type: image/png");
@@ -129,70 +185,68 @@ void WebServer::serveClient(EthernetClient& client) {
 }
 
 void WebServer::sendControlPage(EthernetClient& client) {
-    client.println("HTTP/1.1 200 OK");
-    client.println("Content-Type: text/html");
-    client.println("Connection: close");
-    client.println();
-    client.println("<!DOCTYPE html><html><head><title>Flicker Control</title>");
-    sendFaviconLink(client);
-    client.println("</head><body>");
-    client.println("<h1><img src=\"/favicon.ico\" width=\"32\" height=\"32\"> Flicker Device Control</h1>");
-    client.println("<p><a href=\"/config\">Configuration</a></p>");
-    client.println("<form method=\"get\" action=\"/api/state\">");
-    client.println("<p>Mode: <select name=\"mode\">");
-    client.println("<option value=\"off\">Off</option>");
-    client.println("<option value=\"constant\">Constant</option>");
-    client.println("<option value=\"flicker\">Flicker</option>");
-    client.println("<option value=\"sinus\">Sinus</option>");
-    client.println("</select></p>");
-    client.print("<p>Frequency (");
-    client.print(MIN_FREQ_HZ);
-    client.print("-");
-    client.print(MAX_FREQ_HZ);
-    client.print("): <input type=\"number\" name=\"freq\" min=\"");
+    sendPageHead(client, "Flicker Device", "Control Panel");
+    client.println("<div class=\"nav\"><a class=\"lk\" href=\"/config\">&#9881;&nbsp;Configuration</a></div>");
+    client.println("<div class=\"card\"><h2>Mode</h2>"
+                   "<div class=\"f\"><label>Operating mode</label>"
+                   "<select name=\"mode\">"
+                   "<option value=\"off\">Off</option>"
+                   "<option value=\"constant\">Constant</option>"
+                   "<option value=\"flicker\" selected>Flicker</option>"
+                   "<option value=\"sinus\">Sinus</option>"
+                   "</select></div></div>");
+    client.println("<div class=\"card\"><h2>Parameters</h2><div class=\"row\">");
+    client.print("<div class=\"f\"><label>Frequency (Hz)</label>"
+                 "<input type=\"number\" name=\"freq\" min=\"");
     client.print(MIN_FREQ_HZ);
     client.print("\" max=\"");
     client.print(MAX_FREQ_HZ);
     client.print("\" value=\"");
     client.print(DEFAULT_FREQ_HZ);
-    client.println("\"></p>");
-    client.print("<p>Duty % (");
-    client.print(MIN_DUTY_PERCENT);
-    client.print("-");
-    client.print(MAX_DUTY_PERCENT);
-    client.print("): <input type=\"number\" name=\"duty\" min=\"");
+    client.print("\"><div class=\"hint\">");
+    client.print(MIN_FREQ_HZ);
+    client.print("&ndash;");
+    client.print(MAX_FREQ_HZ);
+    client.println(" Hz</div></div>");
+    client.print("<div class=\"f\"><label>Duty cycle (%)</label>"
+                 "<input type=\"number\" name=\"duty\" min=\"");
     client.print(MIN_DUTY_PERCENT);
     client.print("\" max=\"");
     client.print(MAX_DUTY_PERCENT);
     client.print("\" value=\"");
     client.print(DEFAULT_DUTY_PERCENT);
-    client.println("\"></p>");
-    client.print("<p>Intensity % (");
-    client.print(MIN_INTENSITY_PERCENT);
-    client.print("-");
-    client.print(MAX_INTENSITY_PERCENT);
-    client.print("): <input type=\"number\" name=\"intensity\" min=\"");
+    client.print("\"><div class=\"hint\">");
+    client.print(MIN_DUTY_PERCENT);
+    client.print("&ndash;");
+    client.print(MAX_DUTY_PERCENT);
+    client.println("%</div></div></div>");
+    client.print("<div class=\"f\"><label>Intensity (%)</label>"
+                 "<input type=\"number\" name=\"intensity\" min=\"");
     client.print(MIN_INTENSITY_PERCENT);
     client.print("\" max=\"");
     client.print(MAX_INTENSITY_PERCENT);
     client.print("\" value=\"");
     client.print(DEFAULT_INTENSITY_PERCENT);
-    client.println("\"></p>");
-    client.println("<p><button type=\"button\" onclick=\"apply()\">Apply</button></p>");
-
-    client.println("</form>");
-    client.println("<script>");
-    client.println("function apply(){var m=document.querySelector('select[name=mode]').value; var f=document.querySelector('input[name=freq]').value; var d=document.querySelector('input[name=duty]').value; var i=document.querySelector('input[name=intensity]').value;");
-    client.println("var x=new XMLHttpRequest(); x.open('POST','/api/'+m); x.setRequestHeader('Content-Type','application/json');");
-    client.print("x.send(JSON.stringify({frequency:parseInt(f)||");
+    client.print("\"><div class=\"hint\">");
+    client.print(MIN_INTENSITY_PERCENT);
+    client.print("&ndash;");
+    client.print(MAX_INTENSITY_PERCENT);
+    client.println("%</div></div></div>");
+    client.println("<button onclick=\"apply()\">Apply</button>");
+    client.println("<script>"
+                   "function apply(){"
+                   "var m=document.querySelector('[name=mode]').value;"
+                   "var f=parseInt(document.querySelector('[name=freq]').value)||");
     client.print(DEFAULT_FREQ_HZ);
-    client.print(",dutycycle:parseInt(d)||");
+    client.println(";var d=parseInt(document.querySelector('[name=duty]').value)||");
     client.print(DEFAULT_DUTY_PERCENT);
-    client.print(",intensity:parseInt(i)||");
+    client.println(";var i=parseInt(document.querySelector('[name=intensity]').value)||");
     client.print(DEFAULT_INTENSITY_PERCENT);
-    client.println("}));}");
-    client.println("</script>");
-    client.println("</body></html>");
+    client.println(";var x=new XMLHttpRequest();x.open('POST','/api/'+m);"
+                   "x.setRequestHeader('Content-Type','application/json');"
+                   "x.send(JSON.stringify({frequency:f,dutycycle:d,intensity:i}));}"
+                   "</script>");
+    sendPageFoot(client);
 }
 
 void WebServer::sendConfigPage(EthernetClient& client) {
@@ -209,50 +263,66 @@ void WebServer::sendConfigPage(EthernetClient& client) {
     snprintf(snBuf, sizeof(snBuf), "%u.%u.%u.%u", sn[0], sn[1], sn[2], sn[3]);
     formatIpv4(Ethernet.localIP(), currentIpBuf, sizeof(currentIpBuf));
     if (!currentIpBuf[0]) snprintf(currentIpBuf, sizeof(currentIpBuf), "--");
-    client.println("HTTP/1.1 200 OK");
-    client.println("Content-Type: text/html");
-    client.println("Connection: close");
-    client.println();
-    client.println("<!DOCTYPE html><html><head><title>Configuration</title>");
-    sendFaviconLink(client);
-    client.println("</head><body>");
-    client.println("<h1>Configuration</h1>");
+    sendPageHead(client, "Configuration", "Network &amp; Hardware");
+    client.println("<div class=\"nav\"><a class=\"lk\" href=\"/\">&#8592;&nbsp;Back to control</a></div>");
     client.println("<form method=\"post\" action=\"/config\">");
-    client.print("<p>PWM carrier Hz (");
-    client.print(MIN_CARRIER_HZ);
-    client.print("-");
-    client.print(MAX_CARRIER_HZ);
-    client.print("): <input type=\"number\" name=\"carrier\" min=\"");
+    client.println("<div class=\"card\"><h2>Network</h2>");
+    client.print("<div class=\"f\"><label>"
+                 "<input type=\"checkbox\" name=\"dhcp\" value=\"1\" style=\"width:auto;margin-right:6px\""
+                 " onchange=\"dhcpToggle()\"");
+    if (config_.getUseDhcp()) client.print(" checked");
+    client.println(">Use DHCP</label></div>");
+    client.print("<div id=\"static\" style=\"display:");
+    client.print(config_.getUseDhcp() ? "none" : "block");
+    client.println("\">");
+    client.print("<div class=\"f\"><label>IP address "
+                 "<span style=\"color:var(--ac)\">current: ");
+    client.print(currentIpBuf);
+    client.print("</span></label>"
+                 "<input type=\"text\" name=\"ip\" value=\"");
+    client.print(ipBuf);
+    client.println("\" placeholder=\"192.168.1.100\"></div>");
+    client.print("<div class=\"f\"><label>Gateway</label>"
+                 "<input type=\"text\" name=\"gw\" value=\"");
+    client.print(gwBuf);
+    client.println("\" placeholder=\"192.168.1.1\"></div>");
+    client.print("<div class=\"f\"><label>Subnet mask</label>"
+                 "<input type=\"text\" name=\"sn\" value=\"");
+    client.print(snBuf);
+    client.println("\" placeholder=\"255.255.255.0\"></div>");
+    client.println("</div></div>");
+    client.println("<div class=\"card\"><h2>Hardware</h2>");
+    client.print("<div class=\"f\"><label>PWM carrier frequency (Hz)</label>"
+                 "<input type=\"number\" name=\"carrier\" min=\"");
     client.print(MIN_CARRIER_HZ);
     client.print("\" max=\"");
     client.print(MAX_CARRIER_HZ);
     client.print("\" value=\"");
     client.print(config_.getCarrierHz());
-    client.println("\"></p>");
-    if (config_.getUseDhcp()) {
-        client.println("<p>DHCP: <input type=\"checkbox\" name=\"dhcp\" value=\"1\" checked></p>");
-    } else {
-        client.println("<p>DHCP: <input type=\"checkbox\" name=\"dhcp\" value=\"1\"></p>");
-    }
-    client.print("<p>IP: <input type=\"text\" name=\"ip\" value=\"");
-    client.print(ipBuf);
-    client.print("\" placeholder=\"192.168.1.100\"> (current: ");
-    client.print(currentIpBuf);
-    client.println(")</p>");
-    client.print("<p>Gateway: <input type=\"text\" name=\"gw\" value=\"");
-    client.print(gwBuf);
-    client.print("\" placeholder=\"192.168.1.1\"> (current: ");
-    client.print(gwBuf);
-    client.println(")</p>");
-    client.print("<p>Subnet: <input type=\"text\" name=\"sn\" value=\"");
-    client.print(snBuf);
-    client.print("\" placeholder=\"255.255.255.0\"> (current: ");
-    client.print(snBuf);
-    client.println(")</p>");
-    client.println("<p><button type=\"submit\">Save</button></p>");
-    client.println("</form>");
-    client.println("<p><a href=\"/\">Back to control</a></p>");
-    client.println("</body></html>");
+    client.print("\"><div class=\"hint\">");
+    client.print(MIN_CARRIER_HZ);
+    client.print("&ndash;");
+    client.print(MAX_CARRIER_HZ);
+    client.println(" Hz &mdash; intensity modulation carrier</div></div>");
+    client.print("<div class=\"f\"><label>Display screensaver timeout (s)</label>"
+                 "<input type=\"number\" name=\"screensaver\" min=\"");
+    client.print(MIN_DISPLAY_SCREENSAVER_S);
+    client.print("\" max=\"");
+    client.print(MAX_DISPLAY_SCREENSAVER_S);
+    client.print("\" value=\"");
+    client.print(config_.getScreensaverTimeoutS());
+    client.print("\"><div class=\"hint\">");
+    client.print(MIN_DISPLAY_SCREENSAVER_S);
+    client.print("&ndash;");
+    client.print(MAX_DISPLAY_SCREENSAVER_S);
+    client.println(" s &mdash; idle time before OLED power save</div></div></div>");
+    client.println("<button type=\"submit\">Save</button></form>");
+    client.println("<script>"
+                   "function dhcpToggle(){"
+                   "document.getElementById('static').style.display="
+                   "document.querySelector('[name=dhcp]').checked?'none':'block';}"
+                   "</script>");
+    sendPageFoot(client);
 }
 
 static int parseIp(const char* s, uint8_t* out) {
@@ -295,6 +365,12 @@ void WebServer::parseConfigPost(const char* body) {
         if (sscanf(buf, "%u", &hz) == 1) {
             config_.setCarrierHz((uint32_t)hz);
             flicker_.setCarrierHz(config_.getCarrierHz());
+        }
+    }
+    if (getFormValue(body, "screensaver", buf, sizeof(buf))) {
+        unsigned int seconds = 0;
+        if (sscanf(buf, "%u", &seconds) == 1) {
+            config_.setScreensaverTimeoutS((uint16_t)seconds);
         }
     }
     if (getFormValue(body, "dhcp", buf, sizeof(buf)) && (buf[0] == '1' || strcasecmp(buf, "on") == 0)) {

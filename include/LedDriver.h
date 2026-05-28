@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 
+/* SAMD21: TCC1 dual-slope PWM on D2/D3 (CC[0]/CC[1]); TC4 ISR gates carrier for flicker envelope or advances sine steps. */
 class LedDriver {
 public:
     LedDriver();
@@ -14,10 +15,10 @@ public:
     void setCarrierHz(uint32_t hz);
 private:
     static void sinusTimerIsr();
-    void setupPin();
+    void setupPins();
     void setupTcc1CarrierPwm();
     void configureTc4AtRate(uint32_t matchHz, bool envelopeWithDuty, uint8_t dutyPercent);
-    void setTcc1Compare(uint32_t cc);
+    void setTcc1CompareBoth(uint32_t cc);
     void setTcc1Enabled(bool on);
     static void flickerTimerIsr();
     static LedDriver* instance_;

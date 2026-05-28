@@ -1,4 +1,5 @@
 #include "Display.h"
+#include "ConfigStore.h"
 #include "FlickerController.h"
 #include "Config.h"
 #include "NetworkFormat.h"
@@ -28,8 +29,8 @@ static const char DISPLAY_BOOT_MESSAGE[] = "Init...";
 static const uint8_t DISPLAY_BOOT_MSG_X = 40;
 static const uint8_t DISPLAY_BOOT_MSG_Y = 32;
 
-Display::Display(FlickerController& flicker)
-    : flicker_(flicker), lastUpdateMs_(0), lastUserActivityMs_(0),
+Display::Display(FlickerController& flicker, ConfigStore& config)
+    : flicker_(flicker), config_(config), lastUpdateMs_(0), lastUserActivityMs_(0),
       screensaverOn_(false), prevButtonPressed_(false) {}
 
 void Display::showBootSplash() {
@@ -107,7 +108,8 @@ void Display::update() {
     if (pressEdge)
         lastUserActivityMs_ = now;
 
-    if ((unsigned long)(now - lastUserActivityMs_) >= DISPLAY_SCREENSAVER_IDLE_MS) {
+    const unsigned long idleMs = (unsigned long)config_.getScreensaverTimeoutS() * 1000UL;
+    if ((unsigned long)(now - lastUserActivityMs_) >= idleMs) {
         screensaverOn_ = true;
         u8g2.setPowerSave(1);
         return;

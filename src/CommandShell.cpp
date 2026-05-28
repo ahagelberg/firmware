@@ -44,6 +44,7 @@ void CommandShell::executeLine(const char* line, char* buf, size_t len) {
     if (strcmp(cmd, "dutycycle") == 0 || strcmp(cmd, "duty") == 0) return cmdDutyCycle(a, buf, len);
     if (strcmp(cmd, "intensity") == 0 || strcmp(cmd, "int") == 0)  return cmdIntensity(a, buf, len);
     if (strcmp(cmd, "carrier") == 0)                               return cmdCarrier(a, buf, len);
+    if (strcmp(cmd, "screensaver") == 0)                           return cmdScreensaver(a, buf, len);
     /* Check "calibration" before "calibrate" to avoid prefix collision. */
     if (strcmp(cmd, "calibration") == 0)                         return cmdCalibration(buf, len);
     if (strcmp(cmd, "calibrate") == 0)                           return cmdCalibrate(buf, len);
@@ -135,6 +136,23 @@ void CommandShell::cmdCarrier(const char* args, char* buf, size_t len) {
     }
     store_.setCarrierHz((uint32_t)val);
     flicker_.setCarrierHz(store_.getCarrierHz());
+    store_.save();
+    snprintf(buf, len, "OK");
+}
+
+void CommandShell::cmdScreensaver(const char* args, char* buf, size_t len) {
+    if (args[0] == '\0') {
+        snprintf(buf, len, "OK %u", (unsigned)store_.getScreensaverTimeoutS());
+        return;
+    }
+    unsigned int val;
+    if (sscanf(args, "%u", &val) != 1
+            || val < MIN_DISPLAY_SCREENSAVER_S || val > MAX_DISPLAY_SCREENSAVER_S) {
+        snprintf(buf, len, "ERROR out of range (%u-%u s)",
+                 (unsigned)MIN_DISPLAY_SCREENSAVER_S, (unsigned)MAX_DISPLAY_SCREENSAVER_S);
+        return;
+    }
+    store_.setScreensaverTimeoutS((uint16_t)val);
     store_.save();
     snprintf(buf, len, "OK");
 }

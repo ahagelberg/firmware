@@ -12,7 +12,7 @@ The device exposes three interfaces:
 | HTTP API    | Ethernet          | TCP 80 | JSON               |
 
 
-All LED control goes through `FlickerController`, so frequency calibration applies uniformly regardless of which interface is used.
+All LED control goes through `FlickerController`, so frequency calibration applies uniformly regardless of which interface is used. The output is two hardware channels (MKR Zero D2 and D3) driven in lockstep with the same PWM parameters; there is no per-channel control.
 
 ---
 
@@ -415,6 +415,4 @@ Network changes take effect after a power cycle.
 
 Short press on set button wakes the display from screensaver.
 
-## Factory reset
-
-Hold the set button for **10 s** to perform a factory reset: network settings and PWM carrier Hz are cleared to defaults. The frequency calibration table is **preserved**.
+Hold set button for **10 s** to perform a factory reset: network settings and PWM carrier Hz are cleared to defaults. The frequency calibration table is **preserved**.

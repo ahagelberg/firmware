@@ -25,6 +25,7 @@ private:
     void cmdDutyCycle(const char* args, char* buf, size_t len);
     void cmdIntensity(const char* args, char* buf, size_t len);
     void cmdCarrier(const char* args, char* buf, size_t len);
+    void cmdScreensaver(const char* args, char* buf, size_t len);
     void cmdCalibration(char* buf, size_t len);
     void cmdCalibrate(char* buf, size_t len);
     void wizardHandleMeasurement(const char* line, char* buf, size_t len);

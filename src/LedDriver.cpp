@@ -10,8 +10,7 @@ static inline void syncTCC(Tcc* TCCx) {
 LedDriver* LedDriver::instance_ = nullptr;
 
 static const uint32_t F_CPU_HZ = 48000000u;
-static const uint8_t TCC1_CHANNEL_LED = 0;
-/* SAMD21 TC PRESCALER field encodes {1,2,4,8,16,64,256,1024} — not powers of two from index 5 up. */
+/* SAMD21 TC prescaler enum values map to divisors {1,2,4,8,16,64,256,1024}, not 2^n for index ≥ 5 */
 static const uint32_t TC4_PRESCALER_DIV[] = {1, 2, 4, 8, 16, 64, 256, 1024};
 static const uint8_t TC4_PRESCALER_DIV_COUNT = 8;
 static const uint8_t SINE_TABLE_SIZE = 64;
@@ -29,13 +28,15 @@ LedDriver::LedDriver()
 }
 
 void LedDriver::begin() {
-    setupPin();
+    setupPins();
     setOff();
 }
 
-void LedDriver::setupPin() {
-    pinMode(PIN_LED_OUTPUT, OUTPUT);
-    pinPeripheral(PIN_LED_OUTPUT, PIO_TIMER);
+void LedDriver::setupPins() {
+    pinMode(PIN_LED_OUTPUT_A, OUTPUT);
+    pinMode(PIN_LED_OUTPUT_B, OUTPUT);
+    pinPeripheral(PIN_LED_OUTPUT_A, PIO_TIMER);
+    pinPeripheral(PIN_LED_OUTPUT_B, PIO_TIMER);
 }
 
 void LedDriver::setTcc1Enabled(bool on) {
@@ -50,8 +51,10 @@ void LedDriver::setTcc1Enabled(bool on) {
     }
 }
 
-void LedDriver::setTcc1Compare(uint32_t cc) {
-    TCC1->CC[TCC1_CHANNEL_LED].reg = cc;
+/* Mirror compare to both WO outputs so D2 and D3 stay identical */
+void LedDriver::setTcc1CompareBoth(uint32_t cc) {
+    TCC1->CC[0].reg = cc;
+    TCC1->CC[1].reg = cc;
     syncTCC(TCC1);
 }
 
@@ -73,14 +76,12 @@ void LedDriver::setupTcc1CarrierPwm() {
     syncTCC(TCC1);
     TCC1->PER.reg = carrierPer_;
     syncTCC(TCC1);
-    TCC1->CC[TCC1_CHANNEL_LED].reg = 0;
-    syncTCC(TCC1);
+    setTcc1CompareBoth(0);
     TCC1->CTRLA.reg = TCC_CTRLA_PRESCALER_DIV1 | TCC_CTRLA_ENABLE;
     syncTCC(TCC1);
 }
 
-/* TC4 timing depends only on matchHz and optional duty — never on intensity.
-   Flicker: envelopeWithDuty true (MC0+MC1). Sinus: single rate for sine steps (MC0 only). */
+/* MC0 / MC1 interrupts at flicker rate (duty split) or faster tick for sinus stepping */
 void LedDriver::configureTc4AtRate(uint32_t matchHz, bool envelopeWithDuty, uint8_t dutyPercent) {
     PM->APBCMASK.reg |= PM_APBCMASK_TC4;
     GCLK->CLKCTRL.reg = (uint16_t)(GCLK_CLKCTRL_CLKEN | GCLK_CLKCTRL_GEN_GCLK0 | GCLK_CLKCTRL_ID(GCM_TC4_TC5));
@@ -121,7 +122,8 @@ void LedDriver::setOff() {
     NVIC_DisableIRQ(TC4_IRQn);
     TCC1->CTRLA.bit.ENABLE = 0;
     syncTCC(TCC1);
-    digitalWrite(PIN_LED_OUTPUT, LOW);
+    digitalWrite(PIN_LED_OUTPUT_A, LOW);
+    digitalWrite(PIN_LED_OUTPUT_B, LOW);
 }
 
 void LedDriver::setConstant(uint8_t intensityPercent) {
@@ -129,9 +131,9 @@ void LedDriver::setConstant(uint8_t intensityPercent) {
     NVIC_DisableIRQ(TC4_IRQn);
     useCarrier_ = false;
     setupTcc1CarrierPwm();
-    /* CC controls off-time on this hardware; invert so intensity = on-time */
+    /* CC sets off-time for this pinmux polarity */
     uint32_t cc = (carrierPer_ * (100u - (uint32_t)intensityPercent)) / 100u;
-    setTcc1Compare(cc);
+    setTcc1CompareBoth(cc);
     setTcc1Enabled(true);
 }
 
@@ -141,7 +143,7 @@ void LedDriver::setFlicker(uint32_t freqHz, uint8_t dutyPercent, uint8_t intensi
     useCarrier_ = true;
     NVIC_DisableIRQ(TC4_IRQn);
     setupTcc1CarrierPwm();
-    setTcc1Compare(0);
+    setTcc1CompareBoth(0);
     setTcc1Enabled(true);
     configureTc4AtRate(freqHz, true, dutyPercent);
 }
@@ -152,13 +154,14 @@ void LedDriver::setSinus(uint32_t freqHz, uint8_t intensityPercent) {
     sinusMode_ = true;
     flickerIntensityPercent_ = intensityPercent;
     setupTcc1CarrierPwm();
-    setTcc1Compare(0);
+    setTcc1CompareBoth(0);
     setTcc1Enabled(true);
     sinusIndex_ = 0;
     const uint32_t isrFreq = freqHz * (uint32_t)SINE_TABLE_SIZE;
     configureTc4AtRate(isrFreq, false, 0);
 }
 
+/* ISR: avoid SYNCBUSY wait — write CC registers directly */
 void LedDriver::sinusTimerIsr() {
     LedDriver& d = *instance_;
     if (d.carrierPer_ == 0) return;
@@ -167,7 +170,8 @@ void LedDriver::sinusTimerIsr() {
     if (d.sinusIndex_ >= SINE_TABLE_SIZE) d.sinusIndex_ = 0;
     uint32_t onCc = ((uint32_t)raw * (uint32_t)d.flickerIntensityPercent_ * d.carrierPer_) / (100u * 4095u);
     uint32_t cc = (onCc >= d.carrierPer_) ? 0u : (d.carrierPer_ - onCc);
-    TCC1->CC[TCC1_CHANNEL_LED].reg = cc;
+    TCC1->CC[0].reg = cc;
+    TCC1->CC[1].reg = cc;
     TC4->COUNT16.INTFLAG.reg = TC_INTFLAG_MC0;
 }
 
@@ -182,7 +186,8 @@ void LedDriver::flickerTimerIsr() {
         TC4->COUNT16.INTFLAG.reg = TC_INTFLAG_MC1;
         cc = d.carrierPer_;
     }
-    TCC1->CC[TCC1_CHANNEL_LED].reg = cc;
+    TCC1->CC[0].reg = cc;
+    TCC1->CC[1].reg = cc;
 }
 
 void TC4_Handler(void) {
