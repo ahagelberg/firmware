@@ -1,11 +1,24 @@
 # Optical Flicker Generator
 
-Firmware project for an Ethernet-connected optical flicker generator with:
+Optical Flicker Generator is a complete hardware + firmware device for controlled high-power optical stimulation.
+
+Current hardware platform:
+
+- Arduino MKR Zero
+- Arduino Ethernet Shield
+- Custom PCB with high-current LED driver stages
+
+Current software provides:
 
 - Web control page (`/`)
 - Web configuration page (`/config`)
 - HTTP JSON API
 - ASCII shell over Serial and optional Telnet
+
+## Project Scope
+
+- Firmware source code is under `firmware/`.
+- Hardware design files (schematics/PCB/manufacturing outputs) are under `hardware/`.
 
 ## Documentation
 
@@ -23,3 +36,4 @@ Firmware project for an Ethernet-connected optical flicker generator with:
 ## Repository Layout
 
 - `firmware/` - PlatformIO firmware source and documentation
+- `hardware/` - Hardware design files
